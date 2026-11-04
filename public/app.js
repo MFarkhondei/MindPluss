@@ -770,22 +770,7 @@
             dx: 0,
             dy: 0,
             attachments: [],
-            children: [
-              {
-                id: uid("node"),
-                text: isFa ? "زیرشاخه (کلید Tab)" : "Sub-branch (Press Tab)",
-                note: "",
-                color: "#10b981",
-                hasTodo: true,
-                checked: true,
-                collapsed: false,
-                dir: "right",
-                dx: 0,
-                dy: 0,
-                attachments: [],
-                children: []
-              }
-            ]
+            children: []
           }
         ]
       }
