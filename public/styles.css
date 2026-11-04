@@ -2399,3 +2399,57 @@ kbd {
   line-height: 1.68;
 }
 
+
+/* Spacious branch note editor */
+.note-modal {
+  width: min(900px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  color: var(--text);
+  background: var(--sidebar);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .5);
+}
+.note-modal::backdrop {
+  background: rgba(0, 0, 0, .55);
+  backdrop-filter: blur(3px);
+}
+.note-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  min-height: 0;
+}
+.note-modal-branch {
+  font-weight: 600;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 64px;
+  overflow: auto;
+}
+.note-modal-input {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  height: clamp(200px, 52dvh, 560px);
+  max-height: 60dvh;
+  padding: 16px;
+  resize: vertical;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.9;
+}
+.note-modal-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (max-width: 600px) {
+  .note-modal-form { padding: 12px; }
+}

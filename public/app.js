@@ -1814,8 +1814,7 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
             renderCanvas();
             scheduleSave();
           } else if (act === "note") {
-            editingNoteNodeId = editingNoteNodeId === node.id ? null : node.id;
-            renderCanvas();
+            openNoteModal(node.id);
           } else if (act === "align") {
             cycleSelectedNodeAlign();
           } else if (act === "ai") {
@@ -2101,40 +2100,14 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
     }
 
     // 4. Note Area (with NotePrompt per-line RTL/LTR direction)
-    if (editingNoteNodeId === node.id) {
-      const nta = document.createElement("textarea");
-      nta.className = "node-note-input";
-      nta.placeholder = t("notePlaceholder");
-      nta.value = node.note || "";
-      applyLiveInputDir(nta, nodeAlign);
-      nta.addEventListener("input", () => applyLiveInputDir(nta, nodeAlign));
-      const commitNote = () => {
-        if (editingNoteNodeId !== node.id) return;
-        pushHistory();
-        node.note = nta.value.trim();
-        editingNoteNodeId = null;
-        renderCanvas();
-        scheduleSave();
-      };
-      nta.addEventListener("pointerdown", (e) => e.stopPropagation());
-      nta.addEventListener("blur", commitNote);
-      nta.addEventListener("keydown", (e) => {
-        e.stopPropagation();
-        if (e.key === "Escape" || (e.key === "Enter" && e.ctrlKey)) {
-          commitNote();
-        }
-      });
-      el.appendChild(nta);
-      setTimeout(() => nta.focus(), 15);
-    } else if (node.note && node.note.trim()) {
+    if (node.note && node.note.trim()) {
       const noteDiv = document.createElement("div");
       noteDiv.className = "node-note";
       renderMultilineLines(noteDiv, node.note, nodeAlign);
       noteDiv.addEventListener("dblclick", (e) => {
         e.stopPropagation();
         selectSingleNode(node.id);
-        editingNoteNodeId = node.id;
-        renderCanvas();
+        openNoteModal(node.id);
       });
       el.appendChild(noteDiv);
     }
@@ -3041,6 +3014,73 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
     showToast(`${t("toastMovedDir")} (${targetDir || "child"})`);
   }
 
+  function openNoteModal(nodeId) {
+    const board = getActiveBoard();
+    const node = board && findNode(board.root, nodeId);
+    if (!node) return;
+    const isFa = state.lang === "fa";
+    const previousFocus = document.activeElement;
+    const dialog = document.createElement("dialog");
+    dialog.className = "note-modal";
+    dialog.dir = isFa ? "rtl" : "ltr";
+    dialog.setAttribute("aria-labelledby", "noteModalTitle");
+    dialog.innerHTML = `
+      <div class="settings-header">
+        <span class="settings-title" id="noteModalTitle"></span>
+        <button type="button" class="win-btn" data-note-close>&times;</button>
+      </div>
+      <form class="note-modal-form">
+        <div class="note-modal-branch"></div>
+        <textarea class="note-modal-input" autofocus></textarea>
+        <div class="modal-footer-actions">
+          <button type="button" class="copy-btn" data-note-cancel></button>
+          <button type="submit" class="copy-btn ai-submit-btn" data-note-save></button>
+        </div>
+      </form>`;
+    dialog.querySelector("#noteModalTitle").textContent = t("ctxNote");
+    const closeButton = dialog.querySelector("[data-note-close]");
+    closeButton.setAttribute("aria-label", isFa ? "\u0628\u0633\u062a\u0646" : "Close");
+    dialog.querySelector(".note-modal-branch").textContent = node.text || "";
+    const input = dialog.querySelector("textarea");
+    input.value = node.note || "";
+    input.placeholder = t("notePlaceholder");
+    input.setAttribute("aria-label", t("actNote"));
+    const updateDirection = () => applyLiveInputDir(input, EDITOR_ALIGNS.includes(node.align) ? node.align : "auto");
+    input.addEventListener("input", updateDirection);
+    dialog.querySelector("[data-note-cancel]").textContent = isFa ? "\u0627\u0646\u0635\u0631\u0627\u0641" : "Cancel";
+    dialog.querySelector("[data-note-save]").textContent = isFa ? "\u062b\u0628\u062a \u06cc\u0627\u062f\u062f\u0627\u0634\u062a" : "Save note";
+    const close = () => dialog.close();
+    closeButton.addEventListener("click", close);
+    dialog.querySelector("[data-note-cancel]").addEventListener("click", close);
+    dialog.querySelector("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (getActiveBoard() !== board || findNode(board.root, nodeId) !== node) return close();
+      const value = input.value.trim();
+      if (value !== (node.note || "")) {
+        pushHistory();
+        node.note = value;
+        renderCanvas();
+        scheduleSave();
+      }
+      close();
+    });
+    dialog.addEventListener("keydown", (event) => {
+      event.stopPropagation();
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.preventDefault();
+        dialog.querySelector("form").requestSubmit();
+      }
+    });
+    dialog.addEventListener("close", () => {
+      dialog.remove();
+      if (previousFocus && previousFocus.isConnected) previousFocus.focus();
+    }, { once: true });
+    document.body.appendChild(dialog);
+    updateDirection();
+    dialog.showModal();
+    input.focus();
+  }
+
   function deleteSelectedNode() {
     const board = getActiveBoard();
     if (!board) return;
@@ -3866,8 +3906,7 @@ Rules:
           editingNodeId = node.id;
           renderCanvas();
         } else if (act === "note") {
-          editingNoteNodeId = node.id;
-          renderCanvas();
+          openNoteModal(node.id);
         } else if (act === "todo") {
           pushHistory();
           const board = getActiveBoard();
@@ -4874,8 +4913,7 @@ Rules:
       const board = getActiveBoard();
       if (!board) return;
       const targetId = selectedNodeId || board.root.id;
-      editingNoteNodeId = editingNoteNodeId === targetId ? null : targetId;
-      renderCanvas();
+      openNoteModal(targetId);
     });
 
     if (actAlign) {
