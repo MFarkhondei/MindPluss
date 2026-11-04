@@ -1106,10 +1106,21 @@
       btn.classList.toggle("active", btn.dataset.lang === state.lang);
     });
 
+    updateWorkspaceFileStatus();
     applyTheme(state.theme);
     renderRail();
     renderCanvas();
     updateStatusbar();
+  }
+
+  function updateWorkspaceFileStatus() {
+    const fa = state.lang === 'fa';
+    document.getElementById('btnCreateWorkspace').textContent = fa ? 'ذخیره مستقیم در فایل' : 'Save workspace to file';
+    document.getElementById('btnOpenWorkspace').textContent = fa ? 'باز کردن فضای کاری' : 'Open workspace file';
+    const name = window.MindPlussPlatform.fileStatus().name;
+    const status = document.getElementById('workspaceFileStatus');
+    status.textContent = name ? (fa ? 'فایل: ' : 'File: ') + name : (fa ? 'ذخیره در مرورگر' : 'Browser storage');
+    status.title = name || '';
   }
 
   // --- Save & Load Workspace ---
@@ -1124,14 +1135,17 @@
       await invoke("save_workspace", { data: state });
       autosaveBadge.textContent = t("saved");
       autosaveBadge.classList.remove("saving");
+      return true;
     } catch (e) {
       console.error("Save error:", e);
       autosaveBadge.textContent = "save failed ✗";
       showToast("Could not save workspace: " + e);
+      return false;
     }
   }
 
   function scheduleSave() {
+    window.MindPlussPlatform.markFileDirty();
     autosaveBadge.textContent = t("saving");
     autosaveBadge.classList.add("saving");
     if (saveTimer) clearTimeout(saveTimer);
@@ -4393,8 +4407,17 @@ Rules:
       appRoot.classList.toggle("maximized", !!isMax);
     });
     closeBtn.addEventListener("click", closeWindowSafely);
-    window.addEventListener("beforeunload", () => {
-      if (saveTimer) flushSave();
+    window.addEventListener("beforeunload", (event) => {
+      const file = window.MindPlussPlatform.fileStatus();
+      if (file.name && (saveTimer || file.pending)) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+        flushSave();
+      }
     });
 
     pinBtn.addEventListener("click", async () => {
@@ -4568,6 +4591,46 @@ Rules:
       syncAiSettingsUI();
       scheduleSave();
     });
+
+    async function connectWorkspaceFile(create) {
+      if (saveTimer || window.MindPlussPlatform.fileStatus().pending) {
+        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+        if (!await flushSave()) return;
+        showToast(state.lang === 'fa' ? 'تغییرات ذخیره شد؛ دوباره دکمه را بزنید.' : 'Changes saved; click again to select a file.');
+        return;
+      }
+      const controls = ['btnCreateWorkspace', 'btnOpenWorkspace'];
+      controls.forEach(id => { document.getElementById(id).disabled = true; });
+      try {
+        const board = getActiveBoard();
+        if (board) Object.assign(board, { panX, panY, zoom });
+        const result = await invoke('connect_workspace_file', { create, data: state });
+        if (!create) {
+          if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+          state = Object.assign({}, state, result.data);
+          historyMap.clear();
+          selectedNodeIds.clear();
+          selectedNodeId = null;
+          if (state.lang !== 'fa') state.lang = 'en';
+          if (state.theme !== 'light') state.theme = 'dark';
+          if (!state.boards.some(b => b.id === state.activeBoardId)) state.activeBoardId = state.boards[0].id;
+          // Prevent switchBoard from copying the previous canvas position into the loaded board.
+          const activeId = state.activeBoardId;
+          state.activeBoardId = null;
+          switchBoard(activeId);
+          applyLanguage(state.lang);
+        }
+        updateWorkspaceFileStatus();
+        autosaveBadge.textContent = t('saved');
+        showToast(state.lang === 'fa' ? 'ذخیره خودکار در فایل فعال شد' : 'File autosave enabled');
+      } catch (error) {
+        if (error.name !== 'AbortError') showToast(String(error));
+      } finally {
+        controls.forEach(id => { document.getElementById(id).disabled = false; });
+      }
+    }
+    document.getElementById('btnCreateWorkspace').addEventListener('click', () => connectWorkspaceFile(true));
+    document.getElementById('btnOpenWorkspace').addEventListener('click', () => connectWorkspaceFile(false));
 
     // Rail Buttons
     addBoardBtn.addEventListener("click", () => {

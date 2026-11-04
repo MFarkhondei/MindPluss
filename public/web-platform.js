@@ -4,6 +4,57 @@
   const WORKSPACE = 'mindpluss.workspace.v1';
   const KEYS = ['openrouterKey', 'googleKey', 'openaiKey', 'anthropicKey', 'customKey'];
   let volatileKeys = {};
+  let workspaceFile = null;
+  let lastFileContent = null;
+  let writeQueue = Promise.resolve();
+  let pendingWrites = 0;
+  let fileDirty = false;
+  const fileTypes = [{ description: 'MindPluss workspace', accept: { 'application/json': ['.json'] } }];
+  function cleanWorkspace(source) {
+    const data = structuredClone(source);
+    if (data.ai) for (const key of KEYS) {
+      volatileKeys[key] = data.ai[key] || '';
+      data.ai[key] = '';
+    }
+    return data;
+  }
+  function validateWorkspace(data) {
+    const ids = new Set();
+    function nodeValid(node) {
+      return node && typeof node.id === 'string' &&
+        (!node.children || (Array.isArray(node.children) && node.children.every(nodeValid)));
+    }
+    if (!data || !Array.isArray(data.boards) || !data.boards.length ||
+      !data.boards.every(board => board && typeof board.id === 'string' &&
+        !ids.has(board.id) && ids.add(board.id) && nodeValid(board.root))) {
+      throw new Error('فایل معتبر فضای کاری MindPluss نیست / Invalid MindPluss workspace');
+    }
+    return data;
+  }
+  function queueFileWrite(data) {
+    const handle = workspaceFile;
+    const content = JSON.stringify(data, null, 2);
+    pendingWrites++;
+    fileDirty = true;
+    const task = writeQueue.then(async () => {
+      const current = await (await handle.getFile()).text();
+      if (current !== lastFileContent) {
+        throw new Error('فایل بیرون از برنامه تغییر کرده است. ابتدا از تغییرات فعلی خروجی بگیرید، سپس فایل را دوباره باز کنید. / File changed outside MindPluss. Back up your edits and reopen it.');
+      }
+      const writable = await handle.createWritable();
+      try {
+        await writable.write(content);
+        await writable.close();
+      } catch (error) {
+        try { await writable.abort(); } catch {}
+        throw error;
+      }
+      lastFileContent = content;
+    });
+    writeQueue = task.catch(() => {});
+    return task.then(() => { if (pendingWrites === 1) fileDirty = false; })
+      .finally(() => { pendingWrites--; });
+  }
   function download(blob, name) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -37,6 +88,10 @@
       is_audio: flags.isAudio || mime.startsWith('audio/') };
   }
   window.MindPlussPlatform = {
+    fileStatus() {
+      return { name: workspaceFile ? workspaceFile.name : null, pending: pendingWrites > 0 || fileDirty };
+    },
+    markFileDirty() { if (workspaceFile) fileDirty = true; },
     aiUrl(url) {
       const providers = {
         'https://openrouter.ai/api/v1/': 'openrouter',
@@ -59,11 +114,44 @@
           return { data };
         }
         case 'save_workspace': {
-          const data = structuredClone(args.data);
-          if (data.ai) for (const key of KEYS) { volatileKeys[key] = data.ai[key] || ''; data.ai[key] = ''; }
+          const data = cleanWorkspace(args.data);
+          if (workspaceFile) return queueFileWrite(data);
           try { localStorage.setItem(WORKSPACE, JSON.stringify(data)); }
           catch { throw new Error('فضای ذخیرهٔ مرورگر پر است. خروجی JSON بگیرید و پیوست‌های بزرگ را حذف کنید. / Browser storage is full. Export JSON to back up your work.'); }
           return true;
+        }
+        case 'connect_workspace_file': {
+          if (!window.showOpenFilePicker || !window.showSaveFilePicker) {
+            throw new Error('برای ذخیره مستقیم فایل، برنامه را در Chrome یا Edge با HTTPS یا localhost باز کنید. / Use Chrome or Edge on HTTPS or localhost.');
+          }
+          let handle;
+          let data;
+          let content;
+          // Open the picker before any await so the user gesture is preserved.
+          if (args.create) {
+            handle = await window.showSaveFilePicker({ suggestedName: 'MindPluss-workspace.json', types: fileTypes });
+            data = cleanWorkspace(args.data);
+            content = await (await handle.getFile()).text();
+          } else {
+            [handle] = await window.showOpenFilePicker({ multiple: false, types: fileTypes });
+            if (handle.requestPermission && await handle.requestPermission({ mode: 'readwrite' }) !== 'granted') {
+              throw new Error('مجوز نوشتن فایل داده نشد / File write permission denied');
+            }
+            content = await (await handle.getFile()).text();
+            data = cleanWorkspace(validateWorkspace(JSON.parse(content)));
+          }
+          await writeQueue;
+          const previous = { workspaceFile, lastFileContent, fileDirty };
+          workspaceFile = handle;
+          lastFileContent = content;
+          fileDirty = false;
+          try {
+            if (args.create) await queueFileWrite(data);
+          } catch (error) {
+            ({ workspaceFile, lastFileContent, fileDirty } = previous);
+            throw error;
+          }
+          return { data, name: handle.name };
         }
         case 'save_text_dialog':
           return download(new Blob([args.content], { type: 'text/plain;charset=utf-8' }), `${args.defaultName}.${args.ext}`);

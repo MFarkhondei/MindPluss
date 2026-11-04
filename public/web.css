@@ -53,3 +53,5 @@ button, input, textarea, select { font-family: var(--font-ui); }
   #undoBtn, #redoBtn, #fullscreenBtn { display: none; }
   .app { --rail-width: 128px !important; }
 }
+
+.workspace-file-status { padding: 4px 10px 8px; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
