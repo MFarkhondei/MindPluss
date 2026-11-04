@@ -1,0 +1,55 @@
+:root {
+  --font: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
+  --font-ui: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
+  --radius: 12px;
+  --radius-sm: 7px;
+  --accent: #a698ff;
+  --bg: #14131e;
+  --sidebar: #191824;
+  --elevated: #222131;
+  --elevated-hi: #302e43;
+}
+body.theme-light {
+  --bg: #f7f8fc;
+  --sidebar: #fff;
+  --elevated: #fff;
+  --elevated-hi: #efedf9;
+  --text: #29263e;
+  --accent: #7160df;
+  --node-default: #7160df;
+  --grid-dot: #dcd9eb;
+  --border: #eae8f1;
+  --border-strong: #d4cfe4;
+}
+#pinBtn, #minBtn, #maxBtn, #closeBtn, #btnSyncNotePromptAi { display: none !important; }
+.titlebar { min-height: 64px; padding: 0 20px; gap: 16px; }
+.titlebar-left { gap: 14px; min-width: 0; }
+.brand-name { font-family: 'Segoe UI', sans-serif; font-size: 21px; font-weight: 750; letter-spacing: -.8px; text-transform: none; }
+.brand-dot { width: 13px; height: 13px; background: #8b75ef; border-radius: 5px; box-shadow: 0 0 0 5px #8b75ef16; }
+.profile-chip { border-radius: 9px; padding: 7px 11px; }
+.ai-chip { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+.autosave-pill { border: 0; color: #609e81; }
+.win-controls { gap: 3px; }
+.win-btn { border-radius: 8px; }
+.rail { padding-top: 15px; }
+.mind-node { border-radius: 12px; }
+.canvas-viewport { touch-action: none; }
+.modal, .modal-card { border-radius: 18px; }
+button, input, textarea, select { font-family: var(--font-ui); }
+.web-about { display: block; padding: 14px; font-size: 10px; color: var(--muted); text-align: center; text-decoration: none; }
+@media (max-width: 800px) {
+  .titlebar { padding: 0 9px; min-height: 58px; gap: 5px; }
+  .titlebar-left { gap: 7px; }
+  .brand-name { font-size: 17px; }
+  .brand-dot { width: 10px; height: 10px; }
+  #themeChip, #layoutChip, .autosave-pill, #aiTopChipLabel { display: none; }
+  .win-controls { gap: 0; }
+  .win-btn { width: 30px; }
+  .app { --rail-width: 150px !important; }
+  .profile-chip { padding: 6px 9px; }
+  .modal { max-width: calc(100vw - 24px); max-height: 90dvh; overflow-y: auto; }
+}
+@media (max-width: 450px) {
+  #undoBtn, #redoBtn, #fullscreenBtn { display: none; }
+  .app { --rail-width: 128px !important; }
+}
