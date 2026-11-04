@@ -1944,6 +1944,7 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
         });
         header.appendChild(ta);
         setTimeout(() => {
+          if (!ta.isConnected || document.activeElement === ta) return;
           ta.focus();
           ta.select();
         }, 10);
@@ -2947,12 +2948,19 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
     return newChild;
   }
 
-  function addChildNode(parentId, direction = null, nodeType = "text") {
-    const newChild = createChildBranchWithoutEdit(parentId, direction, "", nodeType);
+  function addChildNode(parentId, direction = null, nodeType = "text", initialText = "") {
+    const newChild = createChildBranchWithoutEdit(parentId, direction, initialText, nodeType);
     if (!newChild) return;
     editingNodeId = nodeType === "text" ? newChild.id : null;
     renderRail();
     renderCanvas();
+    if (nodeType === "text" && initialText) {
+      const input = document.querySelector(".node-title-input");
+      if (input) {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }
+    }
     scheduleSave();
   }
 
@@ -5015,6 +5023,17 @@ Rules:
       if (ev.key === "Delete" || ev.key === "Backspace") {
         ev.preventDefault();
         deleteSelectedNode();
+        return;
+      }
+      if (
+        selectedNodeId &&
+        ev.key.length === 1 &&
+        !ev.ctrlKey && !ev.metaKey && !ev.altKey && !ev.isComposing &&
+        !document.querySelector(".modal-backdrop:not(.hidden)")
+      ) {
+        ev.preventDefault();
+        hideAllPopovers();
+        addChildNode(selectedNodeId, null, "text", ev.key);
         return;
       }
       if (ev.key === "Escape") {
