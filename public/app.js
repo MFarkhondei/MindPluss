@@ -4032,11 +4032,54 @@ Rules:
     const board = getActiveBoard();
     if (!board || layoutPositions.size === 0) return;
 
+    if (document.fonts) await document.fonts.ready;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const textLayouts = new Map();
+    const exportSizes = new Map();
+
+    function wrapText(text, maxWidth, font) {
+      ctx.font = font;
+      return String(text || "").split("\n").flatMap((paragraph) => {
+        const lines = [];
+        let line = "";
+        for (const char of Array.from(paragraph)) {
+          if (line && ctx.measureText(line + char).width > maxWidth) {
+            lines.push(line);
+            line = "";
+          }
+          line += char;
+        }
+        lines.push(line);
+        return lines;
+      });
+    }
+
+    function measureExportNode(node) {
+      const pos = layoutPositions.get(node.id);
+      if (!pos) return;
+      const titleFont = node.id === board.root.id
+        ? 'bold 14.5px "Segoe UI", Tahoma, sans-serif'
+        : '600 13px "Segoe UI", Tahoma, sans-serif';
+      const noteFont = '11.5px "Segoe UI", Tahoma, sans-serif';
+      const prefix = node.hasTodo ? (node.checked ? "☑ " : "☐ ") : "";
+      const titleLines = wrapText(prefix + (node.text || ""), pos.w - 22, titleFont);
+      const noteLines = node.note && node.note.trim()
+        ? wrapText(node.note, pos.w - 38, noteFont) : [];
+      textLayouts.set(node.id, { titleFont, noteFont, titleLines, noteLines });
+      const textHeight = 20 + titleLines.length * 21 +
+        (noteLines.length ? 18 + noteLines.length * 18 : 0);
+      exportSizes.set(node.id, { w: pos.w, h: Math.max(pos.h, textHeight) });
+      if (!node.collapsed) (node.children || []).forEach(measureExportNode);
+    }
+    measureExportNode(board.root);
+    const exportPositions = computeTreeLayout(board, exportSizes);
+
     let minX = Infinity,
       minY = Infinity,
       maxX = -Infinity,
       maxY = -Infinity;
-    layoutPositions.forEach((p) => {
+    exportPositions.forEach((p) => {
       minX = Math.min(minX, p.x);
       minY = Math.min(minY, p.y);
       maxX = Math.max(maxX, p.x + p.w);
@@ -4048,10 +4091,8 @@ Rules:
     const height = Math.ceil(maxY - minY + pad * 2);
     const scale = 2;
 
-    const canvas = document.createElement("canvas");
     canvas.width = width * scale;
     canvas.height = height * scale;
-    const ctx = canvas.getContext("2d");
     ctx.scale(scale, scale);
 
     const isLight = state.theme === "light";
@@ -4063,10 +4104,10 @@ Rules:
 
     function drawBranchLines(parent) {
       if (!parent || parent.collapsed || !parent.children) return;
-      const pPos = layoutPositions.get(parent.id);
+      const pPos = exportPositions.get(parent.id);
       if (!pPos) return;
       parent.children.forEach((child) => {
-        const cPos = layoutPositions.get(child.id);
+        const cPos = exportPositions.get(child.id);
         if (!cPos) return;
         ctx.beginPath();
         ctx.strokeStyle = child.color || parent.color || board.color || "#3b82f6";
@@ -4138,7 +4179,7 @@ Rules:
     drawBranchLines(board.root);
 
     function drawNodes(node) {
-      const pos = layoutPositions.get(node.id);
+      const pos = exportPositions.get(node.id);
       if (!pos) return;
       const nx = pos.x + ox;
       const ny = pos.y + oy;
@@ -4153,26 +4194,29 @@ Rules:
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = isLight ? "#111113" : "#f2f2f5";
-      ctx.font =
-        node.id === board.root.id
-          ? 'bold 14.5px "Segoe UI", Tahoma, sans-serif'
-          : '600 13px "Segoe UI", Tahoma, sans-serif';
+      const { titleFont, noteFont, titleLines, noteLines } = textLayouts.get(node.id);
       const nodeAlign = EDITOR_ALIGNS.includes(node.align) ? node.align : "auto";
-      const nodeDir = resolveBlockDir(node.text || "", nodeAlign);
-      const effAlign = lineAlignFor(nodeDir, nodeAlign);
-      ctx.direction = nodeDir;
       ctx.textBaseline = "top";
-      const prefix = node.hasTodo ? (node.checked ? "☑ " : "☐ ") : "";
-      if (effAlign === "right") {
-        ctx.textAlign = "right";
-        ctx.fillText(prefix + (node.text || ""), nx + nw - 11, ny + 10, nw - 22);
-      } else if (effAlign === "center") {
-        ctx.textAlign = "center";
-        ctx.fillText(prefix + (node.text || ""), nx + nw / 2, ny + 10, nw - 22);
-      } else {
-        ctx.textAlign = "left";
-        ctx.fillText(prefix + (node.text || ""), nx + 11, ny + 10, nw - 22);
+      function drawTextLines(lines, font, y, inset, lineHeight) {
+        ctx.font = font;
+        lines.forEach((line, index) => {
+          const dir = resolveBlockDir(line, nodeAlign);
+          const align = lineAlignFor(dir, nodeAlign);
+          ctx.direction = dir;
+          ctx.textAlign = align;
+          const x = align === "right" ? nx + nw - inset
+            : align === "center" ? nx + nw / 2 : nx + inset;
+          ctx.fillText(line, x, y + index * lineHeight);
+        });
+      }
+      ctx.fillStyle = isLight ? "#111113" : "#f2f2f5";
+      drawTextLines(titleLines, titleFont, ny + 10, 11, 21);
+      if (noteLines.length) {
+        const noteY = ny + 10 + titleLines.length * 21 + 8;
+        ctx.fillStyle = isLight ? "#f7f8fc" : "#14131e";
+        ctx.fillRect(nx + 11, noteY, nw - 22, noteLines.length * 18 + 10);
+        ctx.fillStyle = isLight ? "#49465e" : "#c3c1d0";
+        drawTextLines(noteLines, noteFont, noteY + 5, 19, 18);
       }
 
       if (!node.collapsed && node.children) {
