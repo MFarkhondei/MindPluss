@@ -1219,6 +1219,7 @@
         applyLiveInputDir(inp);
         inp.addEventListener("input", () => applyLiveInputDir(inp));
         const finishRename = () => {
+          if (renamingBoardId !== b.id) return;
           const val = inp.value.trim();
           if (val) b.title = val;
           renamingBoardId = null;
@@ -1227,8 +1228,13 @@
         };
         inp.addEventListener("blur", finishRename);
         inp.addEventListener("keydown", (e) => {
-          if (e.key === "Enter") finishRename();
+          e.stopPropagation();
+          if (e.key === "Enter") {
+            e.preventDefault();
+            finishRename();
+          }
           if (e.key === "Escape") {
+            e.preventDefault();
             renamingBoardId = null;
             renderRail();
           }
@@ -1918,9 +1924,9 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
         ta.addEventListener("keydown", (e) => {
           e.stopPropagation();
           if (e.key === "Enter" && !e.shiftKey) {
-            // Commit the text and start typing in a sibling under the same parent.
+            // Renaming the map root only commits its title; branches create siblings.
             e.preventDefault();
-            commitEdit(true);
+            commitEdit(!isRoot);
           } else if (e.key === "Escape") {
             editCommitted = true;
             editingNodeId = null;
