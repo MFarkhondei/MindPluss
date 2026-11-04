@@ -1106,10 +1106,21 @@
       btn.classList.toggle("active", btn.dataset.lang === state.lang);
     });
 
+    updateWorkspaceFileStatus();
     applyTheme(state.theme);
     renderRail();
     renderCanvas();
     updateStatusbar();
+  }
+
+  function updateWorkspaceFileStatus() {
+    const fa = state.lang === 'fa';
+    document.getElementById('btnCreateWorkspace').textContent = fa ? '????? ?????? ?? ????' : 'Save workspace to file';
+    document.getElementById('btnOpenWorkspace').textContent = fa ? '??? ???? ???? ????' : 'Open workspace file';
+    const name = window.MindPlussPlatform.fileStatus().name;
+    const status = document.getElementById('workspaceFileStatus');
+    status.textContent = name ? (fa ? '????: ' : 'File: ') + name : (fa ? '????? ?? ??????' : 'Browser storage');
+    status.title = name || '';
   }
 
   // --- Save & Load Workspace ---
@@ -1124,14 +1135,17 @@
       await invoke("save_workspace", { data: state });
       autosaveBadge.textContent = t("saved");
       autosaveBadge.classList.remove("saving");
+      return true;
     } catch (e) {
       console.error("Save error:", e);
       autosaveBadge.textContent = "save failed ✗";
       showToast("Could not save workspace: " + e);
+      return false;
     }
   }
 
   function scheduleSave() {
+    window.MindPlussPlatform.markFileDirty();
     autosaveBadge.textContent = t("saving");
     autosaveBadge.classList.add("saving");
     if (saveTimer) clearTimeout(saveTimer);
@@ -3036,7 +3050,8 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
           <button type="button" class="copy-btn" data-note-cancel></button>
           <button type="submit" class="copy-btn ai-submit-btn" data-note-save></button>
         </div>
-      </form>`;
+      </form>
+      <span class="note-modal-resize" aria-hidden="true"></span>`;
     dialog.querySelector("#noteModalTitle").textContent = t("ctxNote");
     const closeButton = dialog.querySelector("[data-note-close]");
     closeButton.setAttribute("aria-label", isFa ? "\u0628\u0633\u062a\u0646" : "Close");
@@ -3071,13 +3086,60 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
         dialog.querySelector("form").requestSubmit();
       }
     });
+    const header = dialog.querySelector(".settings-header");
+    const resizeHandle = dialog.querySelector(".note-modal-resize");
+    const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
+    const positionDialog = (left, top) => {
+      dialog.style.left = `${clamp(left, 8, window.innerWidth - dialog.offsetWidth - 8)}px`;
+      dialog.style.top = `${clamp(top, 8, window.innerHeight - dialog.offsetHeight - 8)}px`;
+    };
+    const bindPointerGesture = (handle, resize) => {
+      let gesture = null;
+      handle.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.target.closest("button")) return;
+        event.preventDefault();
+        const rect = dialog.getBoundingClientRect();
+        gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, rect };
+        handle.setPointerCapture(event.pointerId);
+      });
+      handle.addEventListener("pointermove", (event) => {
+        if (!gesture || gesture.id !== event.pointerId) return;
+        const dx = event.clientX - gesture.x;
+        const dy = event.clientY - gesture.y;
+        const { rect } = gesture;
+        if (resize) {
+          const maxWidth = window.innerWidth - rect.left - 8;
+          const maxHeight = window.innerHeight - rect.top - 8;
+          dialog.style.width = `${clamp(rect.width + dx, Math.min(320, maxWidth), maxWidth)}px`;
+          dialog.style.height = `${clamp(rect.height + dy, Math.min(280, maxHeight), maxHeight)}px`;
+        } else {
+          positionDialog(rect.left + dx, rect.top + dy);
+        }
+      });
+      const endGesture = () => { gesture = null; };
+      handle.addEventListener("pointerup", endGesture);
+      handle.addEventListener("pointercancel", endGesture);
+      handle.addEventListener("lostpointercapture", endGesture);
+    };
+    bindPointerGesture(header, false);
+    bindPointerGesture(resizeHandle, true);
+    const fitViewport = () => {
+      const rect = dialog.getBoundingClientRect();
+      dialog.style.width = `${Math.min(rect.width, window.innerWidth - 16)}px`;
+      dialog.style.height = `${Math.min(rect.height, window.innerHeight - 16)}px`;
+      positionDialog(rect.left, rect.top);
+    };
+    window.addEventListener("resize", fitViewport);
     dialog.addEventListener("close", () => {
+      window.removeEventListener("resize", fitViewport);
       dialog.remove();
       if (previousFocus && previousFocus.isConnected) previousFocus.focus();
     }, { once: true });
     document.body.appendChild(dialog);
     updateDirection();
     dialog.showModal();
+    positionDialog((window.innerWidth - dialog.offsetWidth) / 2,
+      (window.innerHeight - dialog.offsetHeight) / 2);
     input.focus();
   }
 
@@ -4345,8 +4407,17 @@ Rules:
       appRoot.classList.toggle("maximized", !!isMax);
     });
     closeBtn.addEventListener("click", closeWindowSafely);
-    window.addEventListener("beforeunload", () => {
-      if (saveTimer) flushSave();
+    window.addEventListener("beforeunload", (event) => {
+      const file = window.MindPlussPlatform.fileStatus();
+      if (file.name && (saveTimer || file.pending)) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+        flushSave();
+      }
     });
 
     pinBtn.addEventListener("click", async () => {
@@ -4520,6 +4591,46 @@ Rules:
       syncAiSettingsUI();
       scheduleSave();
     });
+
+    async function connectWorkspaceFile(create) {
+      if (saveTimer || window.MindPlussPlatform.fileStatus().pending) {
+        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+        if (!await flushSave()) return;
+        showToast(state.lang === 'fa' ? '??????? ????? ??? ?????? ???? ?? ?????.' : 'Changes saved; click again to select a file.');
+        return;
+      }
+      const controls = ['btnCreateWorkspace', 'btnOpenWorkspace'];
+      controls.forEach(id => { document.getElementById(id).disabled = true; });
+      try {
+        const board = getActiveBoard();
+        if (board) Object.assign(board, { panX, panY, zoom });
+        const result = await invoke('connect_workspace_file', { create, data: state });
+        if (!create) {
+          if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+          state = Object.assign({}, state, result.data);
+          historyMap.clear();
+          selectedNodeIds.clear();
+          selectedNodeId = null;
+          if (state.lang !== 'fa') state.lang = 'en';
+          if (state.theme !== 'light') state.theme = 'dark';
+          if (!state.boards.some(b => b.id === state.activeBoardId)) state.activeBoardId = state.boards[0].id;
+          // Prevent switchBoard from copying the previous canvas position into the loaded board.
+          const activeId = state.activeBoardId;
+          state.activeBoardId = null;
+          switchBoard(activeId);
+          applyLanguage(state.lang);
+        }
+        updateWorkspaceFileStatus();
+        autosaveBadge.textContent = t('saved');
+        showToast(state.lang === 'fa' ? '????? ?????? ?? ???? ???? ??' : 'File autosave enabled');
+      } catch (error) {
+        if (error.name !== 'AbortError') showToast(String(error));
+      } finally {
+        controls.forEach(id => { document.getElementById(id).disabled = false; });
+      }
+    }
+    document.getElementById('btnCreateWorkspace').addEventListener('click', () => connectWorkspaceFile(true));
+    document.getElementById('btnOpenWorkspace').addEventListener('click', () => connectWorkspaceFile(false));
 
     // Rail Buttons
     addBoardBtn.addEventListener("click", () => {

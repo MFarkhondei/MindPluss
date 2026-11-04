@@ -2402,9 +2402,14 @@ kbd {
 
 /* Spacious branch note editor */
 .note-modal {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  height: min(680px, calc(100dvh - 32px));
   width: min(900px, calc(100vw - 32px));
-  max-width: none;
-  max-height: calc(100dvh - 32px);
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow: hidden;
   padding: 0;
   color: var(--text);
   background: var(--sidebar);
@@ -2412,11 +2417,35 @@ kbd {
   border-radius: 12px;
   box-shadow: 0 18px 60px rgba(0, 0, 0, .5);
 }
+.note-modal[open] {
+  display: flex;
+  flex-direction: column;
+}
+.note-modal .settings-header {
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+}
+.note-modal .settings-header button { cursor: pointer; }
+.note-modal-resize {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  touch-action: none;
+  background: repeating-linear-gradient(135deg, transparent 0 4px, var(--text) 4px 6px);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  opacity: .6;
+}
 .note-modal::backdrop {
   background: rgba(0, 0, 0, .55);
   backdrop-filter: blur(3px);
 }
 .note-modal-form {
+  flex: 1;
+  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -2434,10 +2463,11 @@ kbd {
   box-sizing: border-box;
   display: block;
   width: 100%;
-  height: clamp(200px, 52dvh, 560px);
-  max-height: 60dvh;
+  flex: 1;
+  min-height: 80px;
+  height: auto;
   padding: 16px;
-  resize: vertical;
+  resize: none;
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border-strong);
