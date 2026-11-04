@@ -1,34 +1,69 @@
+/* Navy and gold palette shared with TaskPluss. */
 :root {
   --font: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
   --font-ui: 'Vazirmatn', 'Segoe UI', Tahoma, sans-serif;
   --radius: 12px;
   --radius-sm: 7px;
-  --accent: #a698ff;
-  --bg: #14131e;
-  --sidebar: #191824;
-  --elevated: #222131;
-  --elevated-hi: #302e43;
+  color-scheme: dark;
+  --bg: #12171e;
+  --text: #e7eaee;
+  --sidebar: #1b2a3d;
+  --elevated: #1b222b;
+  --elevated-hi: #223247;
+  --accent: #d4a84b;
+  --node-default: #b8873a;
+  --danger: #e0787b;
+  --success: #79b7a8;
+  --border: rgba(231, 234, 238, 0.10);
+  --border-strong: rgba(231, 234, 238, 0.22);
+  --muted: #93a0af;
+  --muted-2: #b9c3cf;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-glow: color-mix(in srgb, var(--accent) 32%, transparent);
+  --grid-dot: rgba(147, 160, 175, 0.18);
 }
 body.theme-light {
-  --bg: #f7f8fc;
-  --sidebar: #fff;
-  --elevated: #fff;
-  --elevated-hi: #efedf9;
-  --text: #29263e;
-  --accent: #7160df;
-  --node-default: #7160df;
-  --grid-dot: #dcd9eb;
-  --border: #eae8f1;
-  --border-strong: #d4cfe4;
+  --bg: #f7f7f4;
+  --sidebar: #ffffff;
+  --elevated: #ffffff;
+  --elevated-hi: #efe9d8;
+  --text: #1b2a3d;
+  --accent: #8a6428;
+  --node-default: #b8873a;
+  --danger: #a63d40;
+  --success: #2f6f63;
+  --muted: #5b6b7a;
+  --muted-2: #495a6c;
+  --grid-dot: rgba(27, 42, 61, 0.15);
+  --border: rgba(27, 42, 61, 0.10);
+  --border-strong: rgba(27, 42, 61, 0.22);
+  --accent-soft: rgba(184, 135, 58, 0.12);
+  --accent-glow: rgba(184, 135, 58, 0.32);
+}
+/* Keep the navigation navy in both appearance modes. */
+.titlebar, .rail {
+  --bg: #1b2a3d;
+  --sidebar: #1b2a3d;
+  --elevated: #223247;
+  --elevated-hi: #2c4057;
+  --text: #efe9d8;
+  --accent: #d4a84b;
+  --muted: #a7b4c4;
+  --muted-2: #d0d7e1;
+  --border: rgba(239, 233, 216, 0.12);
+  --border-strong: rgba(239, 233, 216, 0.25);
+  --accent-soft: rgba(212, 168, 75, 0.12);
+  --accent-glow: rgba(212, 168, 75, 0.32);
+  color: var(--text);
 }
 #pinBtn, #minBtn, #maxBtn, #closeBtn, #btnSyncNotePromptAi { display: none !important; }
-.titlebar { min-height: 64px; padding: 0 20px; gap: 16px; }
+.titlebar { background: linear-gradient(135deg, #1b2a3d, #223247); min-height: 64px; padding: 0 20px; gap: 16px; }
 .titlebar-left { gap: 14px; min-width: 0; }
 .brand-name { font-family: 'Segoe UI', sans-serif; font-size: 21px; font-weight: 750; letter-spacing: -.8px; text-transform: none; }
-.brand-dot { width: 13px; height: 13px; background: #8b75ef; border-radius: 5px; box-shadow: 0 0 0 5px #8b75ef16; }
+.brand-dot { width: 13px; height: 13px; background: linear-gradient(145deg, #d4a84b, #b8873a); border-radius: 5px; box-shadow: 0 0 0 5px #d4a84b16; }
 .profile-chip { border-radius: 9px; padding: 7px 11px; }
 .ai-chip { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
-.autosave-pill { border: 0; color: #609e81; }
+.autosave-pill { border: 0; color: #9acbb8; }
 .win-controls { gap: 3px; }
 .win-btn { border-radius: 8px; }
 .rail { padding-top: 15px; }
@@ -55,3 +90,8 @@ button, input, textarea, select { font-family: var(--font-ui); }
 }
 
 .workspace-file-status { padding: 4px 10px 8px; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+
+.add-btn { border-color: var(--accent-glow); color: var(--accent); background: var(--accent-soft); }
+.add-btn:hover { border-color: var(--accent); background: var(--accent-glow); }
+.tab.active { background: var(--accent-soft); }
+.seg-btn.active { background: var(--accent-soft); color: var(--accent); }

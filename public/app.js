@@ -151,8 +151,8 @@
       ]
     },
     fa: {
-      themeDark: "مشکی (Dark)",
-      themeLight: "سفید (Light)",
+      themeDark: "تیره (Dark)",
+      themeLight: "روشن (Light)",
       saved: "ذخیره شد ✓",
       saving: "در حال ذخیره...",
       aiMindMap: "نقشه با هوش مصنوعی",
@@ -296,7 +296,7 @@
   };
 
   const BRANCH_COLORS = [
-    "#71717a",
+    "#b8873a",
     "#3b82f6",
     "#10b981",
     "#f59e0b",
@@ -738,7 +738,7 @@
     return {
       id: uid("board"),
       title: title || (isFa ? "نقشه ذهنی اصلی" : "Main Mind Map"),
-      color: "#3b82f6",
+      color: "#b8873a",
       layout: "balanced",
       panX: 0,
       panY: 0,
@@ -749,7 +749,7 @@
         note: isFa
           ? "روی دکمه‌های + دور هر باکس کلیک کنید یا فایل/عکس را بکشید و رها کنید"
           : "Click + on any side (Right, Left, Up, Down) or drag & drop images/files here",
-        color: "#3b82f6",
+        color: "#b8873a",
         hasTodo: false,
         checked: false,
         collapsed: false,
@@ -1727,7 +1727,7 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
       (isRoot ? " is-root" : "") +
       ` node-type-${nType}`;
     el.dataset.id = node.id;
-    const nodeColor = node.color || board.color || "#3b82f6";
+    const nodeColor = node.color || board.color || "#b8873a";
     el.style.setProperty("--node-color", nodeColor);
 
     const isSelected = selectedNodeIds.has(node.id) || node.id === selectedNodeId;
@@ -2777,7 +2777,7 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         path.setAttribute("d", d);
         path.setAttribute("class", "branch-path");
-        path.setAttribute("stroke", child.color || parent.color || board.color || "#3b82f6");
+        path.setAttribute("stroke", child.color || parent.color || board.color || "#b8873a");
         path.setAttribute("stroke-width", parent.id === board.root.id ? "2.2" : "1.8");
         path.setAttribute("stroke-opacity", "0.88");
         connectionsSvg.appendChild(path);
@@ -2896,7 +2896,7 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
     const color =
       targetParent.id === board.root.id
         ? BRANCH_COLORS[targetParent.children.length % BRANCH_COLORS.length]
-        : targetParent.color || board.color || "#3b82f6";
+        : targetParent.color || board.color || "#b8873a";
 
     const defaultText =
       nodeType === "image" ||
@@ -2962,7 +2962,7 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
       nodeType: nodeType || "text",
       text: nodeType === "text" ? t("newSiblingText") : "",
       note: "",
-      color: node.color || parent.color || "#3b82f6",
+      color: node.color || parent.color || "#b8873a",
       hasTodo: nodeType === "text" ? node.hasTodo : false,
       checked: false,
       collapsed: false,
@@ -3795,7 +3795,7 @@ Rules:
       aiData.dir && ["left", "right", "down", "up"].includes(aiData.dir)
         ? aiData.dir
         : inheritedDir;
-    const color = aiData.color || inheritedColor || "#3b82f6";
+    const color = aiData.color || inheritedColor || "#b8873a";
 
     const rawChildren = Array.isArray(aiData.children) ? aiData.children : [];
     const children = rawChildren.map((c, idx) => {
@@ -3865,11 +3865,11 @@ Rules:
           scheduleSave();
         }
       } else {
-        const rootNode = convertAiTreeToNodes(aiTree, "#3b82f6", null, 0);
+        const rootNode = convertAiTreeToNodes(aiTree, "#b8873a", null, 0);
         const newBoard = {
           id: uid("board"),
           title: rootNode.text || prompt.slice(0, 28),
-          color: "#3b82f6",
+          color: "#b8873a",
           layout: "balanced",
           panX: 0,
           panY: 0,
@@ -4196,8 +4196,9 @@ Rules:
     canvas.height = height * scale;
     ctx.scale(scale, scale);
 
-    const isLight = state.theme === "light";
-    ctx.fillStyle = isLight ? "#ffffff" : "#0b0b0d";
+    const theme = getComputedStyle(document.body);
+    const themeColor = (name) => theme.getPropertyValue(name).trim();
+    ctx.fillStyle = themeColor("--bg");
     ctx.fillRect(0, 0, width, height);
 
     const ox = -minX + pad;
@@ -4211,7 +4212,7 @@ Rules:
         const cPos = exportPositions.get(child.id);
         if (!cPos) return;
         ctx.beginPath();
-        ctx.strokeStyle = child.color || parent.color || board.color || "#3b82f6";
+        ctx.strokeStyle = child.color || parent.color || board.color || "#b8873a";
         ctx.lineWidth = parent.id === board.root.id ? 2.4 : 1.8;
         ctx.lineJoin = "miter";
         ctx.lineCap = "square";
@@ -4287,8 +4288,8 @@ Rules:
       const nw = pos.w;
       const nh = pos.h;
 
-      ctx.fillStyle = isLight ? "#ffffff" : "#141418";
-      ctx.strokeStyle = node.color || board.color || "#3b82f6";
+      ctx.fillStyle = themeColor("--elevated");
+      ctx.strokeStyle = node.color || board.color || "#b8873a";
       ctx.lineWidth = node.id === board.root.id ? 2.2 : 1.5;
       ctx.beginPath();
       ctx.roundRect(nx, ny, nw, nh, 5);
@@ -4310,13 +4311,13 @@ Rules:
           ctx.fillText(line, x, y + index * lineHeight);
         });
       }
-      ctx.fillStyle = isLight ? "#111113" : "#f2f2f5";
+      ctx.fillStyle = themeColor("--text");
       drawTextLines(titleLines, titleFont, ny + 10, 11, 21);
       if (noteLines.length) {
         const noteY = ny + 10 + titleLines.length * 21 + 8;
-        ctx.fillStyle = isLight ? "#f7f8fc" : "#14131e";
+        ctx.fillStyle = themeColor("--bg");
         ctx.fillRect(nx + 11, noteY, nw - 22, noteLines.length * 18 + 10);
-        ctx.fillStyle = isLight ? "#49465e" : "#c3c1d0";
+        ctx.fillStyle = themeColor("--muted-2");
         drawTextLines(noteLines, noteFont, noteY + 5, 19, 18);
       }
 

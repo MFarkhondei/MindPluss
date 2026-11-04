@@ -938,7 +938,7 @@ body {
 }
 
 .nq-btn.ai-inline-btn {
-  color: #a855f7;
+  color: var(--accent);
   width: auto;
   padding: 0 6px;
   gap: 3px;
@@ -947,9 +947,9 @@ body {
 }
 
 .nq-btn.ai-inline-btn:hover {
-  background: color-mix(in srgb, #a855f7 16%, transparent);
-  color: #c084fc;
-  border-color: color-mix(in srgb, #a855f7 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .nq-btn.danger:hover {
@@ -1083,7 +1083,7 @@ body {
   flex-direction: column;
   gap: 5px;
   background: var(--bg);
-  border: 1px solid color-mix(in srgb, #a855f7 55%, var(--border-strong));
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border-strong));
   border-radius: 4px;
   padding: 6px;
   margin-top: 2px;
@@ -1104,7 +1104,7 @@ body {
 }
 
 .node-ai-inline-input:focus {
-  border-color: #a855f7;
+  border-color: var(--accent);
 }
 
 .node-ai-inline-actions {
@@ -1131,14 +1131,14 @@ body {
 }
 
 .node-ai-btn.primary {
-  background: color-mix(in srgb, #a855f7 22%, var(--elevated-hi));
-  border-color: color-mix(in srgb, #a855f7 55%, var(--border-strong));
+  background: color-mix(in srgb, var(--accent) 22%, var(--elevated-hi));
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-strong));
   color: var(--text);
 }
 
 .node-ai-btn:hover:not(:disabled) {
-  border-color: #a855f7;
-  background: color-mix(in srgb, #a855f7 32%, var(--elevated-hi));
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 32%, var(--elevated-hi));
 }
 
 .node-ai-btn:disabled {
