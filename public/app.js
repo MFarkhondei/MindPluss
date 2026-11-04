@@ -138,7 +138,7 @@
       ctxDuplicateMap: "Duplicate Map",
       ctxDeleteMap: "Delete Map",
       helpRows: [
-        ["Add Text / Image / Video / Voice / File", "Click + on Right, Left, Top, or Bottom"],
+        ["Add a text branch", "Click + on Right, Left, Top, or Bottom"],
         ["Add a sibling branch (Tab: sub-branch)", "Enter (Shift+Enter: new line)"],
         ["Multi-select branches", "Ctrl+Click, Shift+Drag, or ⬚ tool"],
         ["Move branch to Left / Right / Up / Down", "Drag node & drop onto any + handle"],
@@ -281,7 +281,7 @@
       ctxDuplicateMap: "کپی از نقشه",
       ctxDeleteMap: "حذف نقشه",
       helpRows: [
-        ["افزودن باکس متن / عکس / ویدیو / ویس / فایل", "کلیک روی دکمه + در هر سمت باکس"],
+        ["افزودن شاخهٔ متنی", "کلیک روی دکمه + در هر سمت باکس"],
         ["افزودن شاخهٔ هم‌سطح (Tab: زیرشاخه)", "Enter (خط جدید در متن: Shift+Enter)"],
         ["انتخاب چندتایی (Multi-select)", "Ctrl+Click یا Shift+Drag یا ابزار ⬚"],
         ["انتقال شاخه به چپ یا راست باکس دیگر", "کشیدن شاخه (Drag) و رها کردن روی + سمت دلخواه"],
@@ -2519,7 +2519,8 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
       btn.addEventListener("pointerdown", (ev) => ev.stopPropagation());
       btn.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        openAddTypePopover(btn, node.id, d.dir, "child");
+        hideAllPopovers();
+        addChildNode(node.id, d.dir, "text");
       });
 
       // Allow dropping external files onto a specific + handle to create a branch on that side!
