@@ -786,34 +786,6 @@
                 children: []
               }
             ]
-          },
-          {
-            id: uid("node"),
-            text: isFa ? "شاخه سمت چپ" : "Left Branch",
-            note: "",
-            color: "#f59e0b",
-            hasTodo: false,
-            checked: false,
-            collapsed: false,
-            dir: "left",
-            dx: 0,
-            dy: 0,
-            attachments: [],
-            children: []
-          },
-          {
-            id: uid("node"),
-            text: isFa ? "شاخه پایین" : "Down Branch",
-            note: "",
-            color: "#8b5cf6",
-            hasTodo: false,
-            checked: false,
-            collapsed: false,
-            dir: "down",
-            dx: 0,
-            dy: 0,
-            attachments: [],
-            children: []
           }
         ]
       }
