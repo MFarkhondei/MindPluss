@@ -759,7 +759,8 @@ body {
 .canvas-viewport {
   flex: 1;
   position: relative;
-  overflow: hidden;
+  /* Keep focus from scrolling the oversized world and shifting the grid. */
+  overflow: clip;
   cursor: grab;
   direction: ltr;
 }
