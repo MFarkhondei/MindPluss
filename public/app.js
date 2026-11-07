@@ -138,6 +138,7 @@
       ctxDuplicateMap: "Duplicate Map",
       ctxDeleteMap: "Delete Map",
       helpRows: [
+        ["Navigate between branches", "Arrow keys ↑ ↓ ← →"],
         ["Add a text branch", "Click + on Right, Left, Top, or Bottom"],
         ["Add a sibling branch (Tab: sub-branch)", "Enter (Shift+Enter: new line)"],
         ["Multi-select branches", "Ctrl+Click, Shift+Drag, or ⬚ tool"],
@@ -281,6 +282,7 @@
       ctxDuplicateMap: "کپی از نقشه",
       ctxDeleteMap: "حذف نقشه",
       helpRows: [
+        ["حرکت بین نودها", "کلیدهای جهت‌دار ↑ ↓ ← →"],
         ["افزودن شاخهٔ متنی", "کلیک روی دکمه + در هر سمت باکس"],
         ["افزودن شاخهٔ هم‌سطح (Tab: زیرشاخه)", "Enter (خط جدید در متن: Shift+Enter)"],
         ["انتخاب چندتایی (Multi-select)", "Ctrl+Click یا Shift+Drag یا ابزار ⬚"],
@@ -954,6 +956,53 @@
     selectedNodeId = null;
     selectedNodeIds.clear();
     aiInlineNodeId = null;
+  }
+
+  function navigateNodes(key) {
+    const board = getActiveBoard();
+    if (!board || layoutPositions.size === 0) return;
+    let targetId = selectedNodeId;
+    const origin = layoutPositions.get(targetId);
+    if (!origin) {
+      targetId = board.root.id;
+    } else {
+      const horizontal = key === "ArrowLeft" || key === "ArrowRight";
+      const direction = key === "ArrowLeft" || key === "ArrowUp" ? -1 : 1;
+      let bestScore = Infinity;
+      layoutPositions.forEach((pos, id) => {
+        if (id === selectedNodeId) return;
+        const dx = pos.x + pos.w / 2 - (origin.x + origin.w / 2);
+        const dy = pos.y + pos.h / 2 - (origin.y + origin.h / 2);
+        const forward = (horizontal ? dx : dy) * direction;
+        const sideways = Math.abs(horizontal ? dy : dx);
+        if (forward <= 0 || sideways > forward) return;
+        const score = Math.hypot(forward, sideways) + sideways;
+        if (score < bestScore) {
+          bestScore = score;
+          targetId = id;
+        }
+      });
+    }
+    if (!targetId) return;
+    hideAllPopovers();
+    aiInlineNodeId = null;
+    selectSingleNode(targetId);
+    renderCanvas();
+    const pos = layoutPositions.get(targetId);
+    if (!pos) return;
+    const rect = canvasViewport.getBoundingClientRect();
+    const left = panX + pos.x * zoom;
+    const top = panY + pos.y * zoom;
+    const right = left + pos.w * zoom;
+    const bottom = top + pos.h * zoom;
+    const padding = 40;
+    if (left < padding || right > rect.width - padding) {
+      panX = Math.round(rect.width / 2 - (pos.x + pos.w / 2) * zoom);
+    }
+    if (top < padding || bottom > rect.height - padding) {
+      panY = Math.round(rect.height / 2 - (pos.y + pos.h / 2) * zoom);
+    }
+    updateViewportTransform();
   }
 
   function getSelectedNodeList(board) {
@@ -5129,6 +5178,17 @@ Rules:
           aiModal.classList.add("hidden");
           settingsModal.classList.add("hidden");
         }
+        return;
+      }
+
+      if (
+        ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(ev.key) &&
+        !ev.ctrlKey && !ev.metaKey && !ev.altKey && !ev.shiftKey &&
+        !ev.isComposing && activeTag !== "SELECT" &&
+        !document.querySelector(".modal-backdrop:not(.hidden)")
+      ) {
+        ev.preventDefault();
+        navigateNodes(ev.key);
         return;
       }
 
