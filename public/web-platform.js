@@ -9,6 +9,27 @@
   let writeQueue = Promise.resolve();
   let pendingWrites = 0;
   let fileDirty = false;
+  let reconnectRequired = false;
+  function workspaceSession(value) {
+    if (!window.indexedDB) return Promise.resolve(null);
+    return new Promise((resolve, reject) => {
+      const request = window.indexedDB.open('mindpluss.files.v1', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('session');
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction('session', value ? 'readwrite' : 'readonly');
+        const store = transaction.objectStore('session');
+        const operation = value ? store.put(value, 'active') : store.get('active');
+        transaction.oncomplete = () => { db.close(); resolve(operation.result); };
+        transaction.onerror = transaction.onabort = () => { db.close(); reject(transaction.error); };
+      };
+    });
+  }
+  async function rememberWorkspace(data) {
+    try { await workspaceSession({ handle: workspaceFile, data }); }
+    catch (error) { console.warn('Could not remember workspace file', error); }
+  }
   const fileTypes = [{ description: 'MindPluss workspace', accept: { 'application/json': ['.json'] } }];
   function cleanWorkspace(source) {
     const data = structuredClone(source);
@@ -50,6 +71,7 @@
         throw error;
       }
       lastFileContent = content;
+      await rememberWorkspace(data);
     });
     writeQueue = task.catch(() => {});
     return task.then(() => { if (pendingWrites === 1) fileDirty = false; })
@@ -109,12 +131,31 @@
     async invoke(command, args = {}) {
       switch (command) {
         case 'load_workspace': {
+          const session = await workspaceSession().catch(() => null);
+          if (session && session.handle) {
+            workspaceFile = session.handle;
+            reconnectRequired = true;
+            let data = session.data;
+            try {
+              const permission = await workspaceFile.queryPermission({ mode: 'readwrite' });
+              if (permission === 'granted') {
+                const content = await (await workspaceFile.getFile()).text();
+                data = cleanWorkspace(validateWorkspace(JSON.parse(content)));
+                lastFileContent = content;
+                reconnectRequired = false;
+              }
+            } catch (error) {
+              console.warn('Workspace file needs reconnecting', error);
+            }
+            return { data: validateWorkspace(data), reconnectRequired };
+          }
           const data = JSON.parse(localStorage.getItem(WORKSPACE) || 'null');
           if (data && data.ai) Object.assign(data.ai, volatileKeys);
           return { data };
         }
         case 'save_workspace': {
           const data = cleanWorkspace(args.data);
+          if (reconnectRequired) throw new Error('برای ادامهٔ ذخیره، فایل فضای کاری را دوباره باز کنید / Reopen the workspace file to resume saving.');
           if (workspaceFile) return queueFileWrite(data);
           try { localStorage.setItem(WORKSPACE, JSON.stringify(data)); }
           catch { throw new Error('فضای ذخیرهٔ مرورگر پر است. خروجی JSON بگیرید و پیوست‌های بزرگ را حذف کنید. / Browser storage is full. Export JSON to back up your work.'); }
@@ -141,16 +182,18 @@
             data = cleanWorkspace(validateWorkspace(JSON.parse(content)));
           }
           await writeQueue;
-          const previous = { workspaceFile, lastFileContent, fileDirty };
+          const previous = { workspaceFile, lastFileContent, fileDirty, reconnectRequired };
           workspaceFile = handle;
           lastFileContent = content;
           fileDirty = false;
+          reconnectRequired = false;
           try {
             if (args.create) await queueFileWrite(data);
           } catch (error) {
-            ({ workspaceFile, lastFileContent, fileDirty } = previous);
+            ({ workspaceFile, lastFileContent, fileDirty, reconnectRequired } = previous);
             throw error;
           }
+          await rememberWorkspace(data);
           return { data, name: handle.name };
         }
         case 'save_text_dialog':

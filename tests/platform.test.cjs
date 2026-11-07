@@ -87,3 +87,62 @@ test('invalid workspace and cancelled picker leave current file connected', asyn
   await invoke('save_workspace',{data:workspace()});
   assert.ok(file.content.includes('data:audio/webm'));
 });
+
+function sessionDatabase() {
+  const records = new Map();
+  return { open() {
+    const request = {};
+    queueMicrotask(() => {
+      request.result = {
+        close() {},
+        transaction() {
+          const transaction = {objectStore: () => ({
+            get(key) {
+              const operation = {result: records.get(key)};
+              queueMicrotask(() => transaction.oncomplete());
+              return operation;
+            },
+            put(value, key) {
+              records.set(key, value);
+              queueMicrotask(() => transaction.oncomplete());
+              return {};
+            }
+          })};
+          return transaction;
+        }
+      };
+      request.onsuccess();
+    });
+    return request;
+  }};
+}
+
+test('reload restores selected workspace file, active board and subsequent file saves', async () => {
+  const file = workspaceFile();
+  file.queryPermission = async () => 'granted';
+  const browser = {indexedDB: sessionDatabase(), showSaveFilePicker: async () => file, showOpenFilePicker: async () => [file]};
+  const first = platform(new Map(), browser);
+  const data = workspace();
+  data.activeBoardId = 'one';
+  await first.invoke('connect_workspace_file', {create: true, data});
+  const reloaded = platform(new Map(), browser);
+  const restored = await reloaded.invoke('load_workspace');
+  assert.equal(restored.data.activeBoardId, 'one');
+  assert.equal(restored.reconnectRequired, false);
+  restored.data.boards[0].title = 'After reload';
+  await reloaded.invoke('save_workspace', {data: restored.data});
+  assert.equal(JSON.parse(file.content).boards[0].title, 'After reload');
+  assert.ok(!file.content.includes('secret'));
+});
+
+test('expired file permission restores cached workspace and requires reconnect before saving', async () => {
+  const file = workspaceFile();
+  file.queryPermission = async () => 'prompt';
+  const browser = {indexedDB: sessionDatabase(), showSaveFilePicker: async () => file, showOpenFilePicker: async () => [file]};
+  await platform(new Map(), browser).invoke('connect_workspace_file', {create: true, data: workspace()});
+  const reloaded = platform(new Map(), browser);
+  const restored = await reloaded.invoke('load_workspace');
+  assert.equal(restored.data.boards[0].id, 'one');
+  assert.equal(restored.reconnectRequired, true);
+  await assert.rejects(reloaded.invoke('save_workspace', {data: restored.data}), /Reopen the workspace/);
+});

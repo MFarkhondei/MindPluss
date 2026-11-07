@@ -5363,6 +5363,9 @@ Rules:
     initEvents();
     try {
       const res = await invoke("load_workspace");
+      if (res && res.reconnectRequired) {
+        showToast('برای ادامهٔ ذخیره، فایل فضای کاری را دوباره باز کنید / Reopen the workspace file to resume saving.');
+      }
       if (res && res.data && Array.isArray(res.data.boards) && res.data.boards.length > 0) {
         state = Object.assign(state, res.data);
         if (!state.ai) {
