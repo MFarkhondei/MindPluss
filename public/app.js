@@ -139,6 +139,7 @@
       ctxDeleteMap: "Delete Map",
       helpRows: [
         ["Navigate between branches", "Arrow keys ↑ ↓ ← →"],
+        ["Save text and finish editing", "Enter (Shift+Enter: new line)"],
         ["Add a text branch", "Click + on Right, Left, Top, or Bottom"],
         ["Add a sibling branch (Tab: sub-branch)", "Enter (Shift+Enter: new line)"],
         ["Multi-select branches", "Ctrl+Click, Shift+Drag, or ⬚ tool"],
@@ -283,6 +284,7 @@
       ctxDeleteMap: "حذف نقشه",
       helpRows: [
         ["حرکت بین نودها", "کلیدهای جهت‌دار ↑ ↓ ← →"],
+        ["ثبت متن و پایان ویرایش", "Enter (خط جدید: Shift+Enter)"],
         ["افزودن شاخهٔ متنی", "کلیک روی دکمه + در هر سمت باکس"],
         ["افزودن شاخهٔ هم‌سطح (Tab: زیرشاخه)", "Enter (خط جدید در متن: Shift+Enter)"],
         ["انتخاب چندتایی (Multi-select)", "Ctrl+Click یا Shift+Drag یا ابزار ⬚"],
@@ -1953,7 +1955,7 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
           applyLiveInputDir(ta, nodeAlign, header);
         });
         let editCommitted = false;
-        const commitEdit = (spawnSiblingAfter = false) => {
+        const commitEdit = () => {
           if (editCommitted || editingNodeId !== node.id) return;
           editCommitted = true;
           const fallback =
@@ -1973,22 +1975,18 @@ Keep it concise (2 to 5 short lines or bullet points) suitable for inside a mind
             }
           }
           editingNodeId = null;
-          if (spawnSiblingAfter) {
-            selectSingleNode(node.id);
-            addSiblingNode("text");
-          } else {
-            renderCanvas();
-            scheduleSave();
-          }
+          selectSingleNode(node.id);
+          renderCanvas();
+          scheduleSave();
         };
         ta.addEventListener("pointerdown", (e) => e.stopPropagation());
-        ta.addEventListener("blur", () => commitEdit(false));
+        ta.addEventListener("blur", () => commitEdit());
         ta.addEventListener("keydown", (e) => {
           e.stopPropagation();
+          if (e.isComposing || e.keyCode === 229) return;
           if (e.key === "Enter" && !e.shiftKey) {
-            // Renaming the map root only commits its title; branches create siblings.
             e.preventDefault();
-            commitEdit(!isRoot);
+            commitEdit();
           } else if (e.key === "Escape") {
             editCommitted = true;
             editingNodeId = null;
@@ -5243,6 +5241,7 @@ Rules:
       }
       if (ev.key === "Tab" || ev.key === "Enter") {
         ev.preventDefault();
+        if (ev.isComposing || ev.keyCode === 229 || ev.repeat) return;
         const board = getActiveBoard();
         if (board) {
           if (ev.key === "Enter") {
