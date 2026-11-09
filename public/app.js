@@ -1170,6 +1170,14 @@
     document.getElementById('btnOpenWorkspace').textContent = fa ? 'باز کردن فضای کاری' : 'Open workspace file';
     const { name, reconnectRequired } = window.MindPlussPlatform.fileStatus();
     if (reconnectRequired) document.getElementById('btnCreateWorkspace').textContent = fa ? 'اتصال مجدد و ذخیرهٔ تغییرات' : 'Reconnect and save changes';
+    autosaveBadge.disabled = !reconnectRequired;
+    if (reconnectRequired) {
+      autosaveBadge.textContent = fa ? 'تأیید دسترسی فایل' : 'Allow file access';
+      autosaveBadge.title = fa ? 'برای نمایش تأییدیهٔ دسترسی کلیک کنید' : 'Click to confirm file access';
+      autosaveBadge.classList.remove('saving');
+    } else {
+      autosaveBadge.title = fa ? 'ذخیرهٔ خودکار فعال است' : 'Auto-save active';
+    }
     const status = document.getElementById('workspaceFileStatus');
     status.textContent = name ? (fa ? 'فایل: ' : 'File: ') + name : (fa ? 'ذخیره در مرورگر' : 'Browser storage');
     status.title = name || '';
@@ -1185,14 +1193,17 @@
         board.zoom = zoom;
       }
       await invoke("save_workspace", { data: state });
+      updateWorkspaceFileStatus();
       autosaveBadge.textContent = t("saved");
       autosaveBadge.classList.remove("saving");
       return true;
     } catch (e) {
-      console.error("Save error:", e);
       autosaveBadge.textContent = "save failed ✗";
       updateWorkspaceFileStatus();
-      if (!window.MindPlussPlatform.fileStatus().reconnectRequired) showToast("Could not save workspace: " + e);
+      if (!window.MindPlussPlatform.fileStatus().reconnectRequired) {
+        console.error("Save error:", e);
+        showToast("Could not save workspace: " + e);
+      }
       return false;
     }
   }
@@ -1201,6 +1212,7 @@
     window.MindPlussPlatform.markFileDirty();
     autosaveBadge.textContent = t("saving");
     autosaveBadge.classList.add("saving");
+    updateWorkspaceFileStatus();
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       saveTimer = null;
@@ -4686,6 +4698,9 @@ Rules:
     }
     document.getElementById('btnCreateWorkspace').addEventListener('click', () => connectWorkspaceFile(true));
     document.getElementById('btnOpenWorkspace').addEventListener('click', () => connectWorkspaceFile(false));
+    autosaveBadge.addEventListener('click', () => {
+      if (window.MindPlussPlatform.fileStatus().reconnectRequired) connectWorkspaceFile(true);
+    });
 
     // Rail Buttons
     addBoardBtn.addEventListener("click", () => {
@@ -5371,7 +5386,7 @@ Rules:
     try {
       const res = await invoke("load_workspace");
       if (res && res.reconnectRequired) {
-        showToast('برای ادامهٔ ذخیره، دکمهٔ «اتصال مجدد و ذخیرهٔ تغییرات» را بزنید / Click Reconnect and save changes to resume saving.');
+        showToast('برای ادامهٔ ذخیره، «تأیید دسترسی فایل» را بزنید / Click Allow file access to continue saving.');
       }
       if (res && res.data && Array.isArray(res.data.boards) && res.data.boards.length > 0) {
         state = Object.assign(state, res.data);

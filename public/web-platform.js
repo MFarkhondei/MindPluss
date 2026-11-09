@@ -10,6 +10,7 @@
   let pendingWrites = 0;
   let fileDirty = false;
   let reconnectRequired = false;
+  let permissionRequested = false;
   function workspaceSession(value) {
     if (!window.indexedDB) return Promise.resolve(null);
     return new Promise((resolve, reject) => {
@@ -156,7 +157,17 @@
         }
         case 'save_workspace': {
           const data = cleanWorkspace(args.data);
-          if (reconnectRequired) throw new Error('برای ادامهٔ ذخیره، فایل فضای کاری را دوباره باز کنید / Reopen the workspace file to resume saving.');
+          if (reconnectRequired) {
+            if (!permissionRequested && workspaceFile.requestPermission) {
+              permissionRequested = true;
+              try {
+                if (await workspaceFile.requestPermission({ mode: 'readwrite' }) === 'granted') reconnectRequired = false;
+              } catch (error) {
+                if (error.name !== 'SecurityError' && error.name !== 'NotAllowedError') throw error;
+              }
+            }
+            if (reconnectRequired) throw new Error('تأیید دسترسی فایل لازم است / File permission confirmation required');
+          }
           if (workspaceFile) return queueFileWrite(data);
           try { localStorage.setItem(WORKSPACE, JSON.stringify(data)); }
           catch { throw new Error('فضای ذخیرهٔ مرورگر پر است. خروجی JSON بگیرید و پیوست‌های بزرگ را حذف کنید. / Browser storage is full. Export JSON to back up your work.'); }

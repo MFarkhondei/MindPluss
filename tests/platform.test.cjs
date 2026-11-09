@@ -174,7 +174,7 @@ test('expired file permission restores cached workspace and requires reconnect b
   const restored = await reloaded.invoke('load_workspace');
   assert.equal(restored.data.boards[0].id, 'one');
   assert.equal(restored.reconnectRequired, true);
-  await assert.rejects(reloaded.invoke('save_workspace', {data: restored.data}), /Reopen the workspace/);
+  await assert.rejects(reloaded.invoke('save_workspace', {data: restored.data}), /permission confirmation required/);
 });
 
 test('reconnect requests permission and saves current edits without reopening old data', async () => {
@@ -201,4 +201,41 @@ test('reconnect requests permission and saves current edits without reopening ol
   await reloaded.invoke('save_workspace', {data});
   assert.equal(JSON.parse(file.content).boards[0].title, 'Next edit');
   assert.ok(!file.content.includes('secret'));
+});
+
+test('saving requests expired permission and writes after approval', async () => {
+  const file = workspaceFile();
+  file.queryPermission = async () => 'prompt';
+  let requests = 0;
+  file.requestPermission = async () => { requests++; return 'granted'; };
+  const browser = {indexedDB: sessionDatabase(), showSaveFilePicker: async () => file, showOpenFilePicker: async () => [file]};
+  await platform(new Map(), browser).invoke('connect_workspace_file', {create: true, data: workspace()});
+  const reloaded = platform(new Map(), browser);
+  const {data} = await reloaded.invoke('load_workspace');
+  data.boards[0].title = 'Approved save';
+  await reloaded.invoke('save_workspace', {data});
+  assert.equal(requests, 1);
+  assert.equal(JSON.parse(file.content).boards[0].title, 'Approved save');
+});
+
+test('background permission restriction waits for a click without repeatedly prompting', async () => {
+  const file = workspaceFile();
+  file.queryPermission = async () => 'prompt';
+  let requests = 0;
+  file.requestPermission = async () => {
+    requests++;
+    const error = new Error('User gesture required');
+    error.name = 'SecurityError';
+    throw error;
+  };
+  const browser = {indexedDB: sessionDatabase(), showSaveFilePicker: async () => file, showOpenFilePicker: async () => [file]};
+  await platform(new Map(), browser).invoke('connect_workspace_file', {create: true, data: workspace()});
+  const reloaded = platform(new Map(), browser);
+  const {data} = await reloaded.invoke('load_workspace');
+  const original = file.content;
+  for (let i = 0; i < 2; i++) await assert.rejects(reloaded.invoke('save_workspace', {data}), /permission confirmation required/);
+  assert.equal(requests, 1);
+  assert.equal(file.content, original);
+  file.requestPermission = async () => 'granted';
+  await reloaded.invoke('reconnect_workspace_file', {data});
 });

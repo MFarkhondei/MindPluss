@@ -64,6 +64,7 @@ body.theme-light {
 .profile-chip { border-radius: 9px; padding: 7px 11px; }
 .ai-chip { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
 .autosave-pill { border: 0; color: #9acbb8; }
+.autosave-pill:not(:disabled) { cursor: pointer; color: var(--accent); }
 .win-controls { gap: 3px; }
 .win-btn { border-radius: 8px; }
 .rail { padding-top: 15px; }
