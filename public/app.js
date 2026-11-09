@@ -1168,7 +1168,8 @@
     const fa = state.lang === 'fa';
     document.getElementById('btnCreateWorkspace').textContent = fa ? 'ذخیره مستقیم در فایل' : 'Save workspace to file';
     document.getElementById('btnOpenWorkspace').textContent = fa ? 'باز کردن فضای کاری' : 'Open workspace file';
-    const name = window.MindPlussPlatform.fileStatus().name;
+    const { name, reconnectRequired } = window.MindPlussPlatform.fileStatus();
+    if (reconnectRequired) document.getElementById('btnCreateWorkspace').textContent = fa ? 'اتصال مجدد و ذخیرهٔ تغییرات' : 'Reconnect and save changes';
     const status = document.getElementById('workspaceFileStatus');
     status.textContent = name ? (fa ? 'فایل: ' : 'File: ') + name : (fa ? 'ذخیره در مرورگر' : 'Browser storage');
     status.title = name || '';
@@ -1190,7 +1191,8 @@
     } catch (e) {
       console.error("Save error:", e);
       autosaveBadge.textContent = "save failed ✗";
-      showToast("Could not save workspace: " + e);
+      updateWorkspaceFileStatus();
+      if (!window.MindPlussPlatform.fileStatus().reconnectRequired) showToast("Could not save workspace: " + e);
       return false;
     }
   }
@@ -4641,7 +4643,9 @@ Rules:
     });
 
     async function connectWorkspaceFile(create) {
-      if (saveTimer || window.MindPlussPlatform.fileStatus().pending) {
+      const reconnect = window.MindPlussPlatform.fileStatus().reconnectRequired;
+      if (reconnect && saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+      if (!reconnect && (saveTimer || window.MindPlussPlatform.fileStatus().pending)) {
         if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
         if (!await flushSave()) return;
         showToast(state.lang === 'fa' ? 'تغییرات ذخیره شد؛ دوباره دکمه را بزنید.' : 'Changes saved; click again to select a file.');
@@ -4652,8 +4656,8 @@ Rules:
       try {
         const board = getActiveBoard();
         if (board) Object.assign(board, { panX, panY, zoom });
-        const result = await invoke('connect_workspace_file', { create, data: state });
-        if (!create) {
+        const result = await invoke(reconnect ? 'reconnect_workspace_file' : 'connect_workspace_file', { create, data: state });
+        if (!create && !reconnect) {
           if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
           state = Object.assign({}, state, result.data);
           historyMap.clear();
@@ -4670,7 +4674,10 @@ Rules:
         }
         updateWorkspaceFileStatus();
         autosaveBadge.textContent = t('saved');
-        showToast(state.lang === 'fa' ? 'ذخیره خودکار در فایل فعال شد' : 'File autosave enabled');
+        autosaveBadge.classList.remove('saving');
+        showToast(reconnect && !create
+          ? (state.lang === 'fa' ? 'اتصال برقرار و تغییرات ذخیره شد؛ برای انتخاب فایل دیگر دوباره «باز کردن فضای کاری» را بزنید.' : 'Reconnected and saved changes; click Open workspace file again to select another file.')
+          : (state.lang === 'fa' ? 'ذخیره خودکار در فایل فعال شد' : 'File autosave enabled'));
       } catch (error) {
         if (error.name !== 'AbortError') showToast(String(error));
       } finally {
@@ -5364,7 +5371,7 @@ Rules:
     try {
       const res = await invoke("load_workspace");
       if (res && res.reconnectRequired) {
-        showToast('برای ادامهٔ ذخیره، فایل فضای کاری را دوباره باز کنید / Reopen the workspace file to resume saving.');
+        showToast('برای ادامهٔ ذخیره، دکمهٔ «اتصال مجدد و ذخیرهٔ تغییرات» را بزنید / Click Reconnect and save changes to resume saving.');
       }
       if (res && res.data && Array.isArray(res.data.boards) && res.data.boards.length > 0) {
         state = Object.assign(state, res.data);

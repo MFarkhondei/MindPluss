@@ -117,6 +117,36 @@ function sessionDatabase() {
   }};
 }
 
+test('both workspace buttons reconnect with pending edits instead of flushing or replacing state', async () => {
+  const source = fs.readFileSync('public/app.js', 'utf8');
+  const handler = source.slice(source.indexOf('    async function connectWorkspaceFile(create)'), source.indexOf("    document.getElementById('btnCreateWorkspace').addEventListener"));
+  for (const create of [true, false]) {
+    const state = workspace();
+    const calls = [];
+    const context = {
+      state, saveTimer: 123, panX: 10, panY: 20, zoom: 1,
+      window: {MindPlussPlatform: {fileStatus: () => ({reconnectRequired: true, pending: true})}},
+      clearTimeout() {},
+      flushSave() { throw new Error('Must reconnect before autosaving'); },
+      getActiveBoard: () => state.boards[0],
+      document: {getElementById: () => ({disabled: false})},
+      invoke: async (command, args) => { calls.push({command, args}); return {name: 'workspace.json'}; },
+      updateWorkspaceFileStatus() {},
+      autosaveBadge: {classList: {remove() {}}},
+      t: key => key, showToast() {}
+    };
+    vm.createContext(context);
+    vm.runInContext(handler, context);
+    await context.connectWorkspaceFile(create);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].command, 'reconnect_workspace_file');
+    assert.equal(calls[0].args.data, state);
+    assert.equal(context.state, state);
+    assert.equal(context.saveTimer, null);
+    assert.equal(context.autosaveBadge.textContent, 'saved');
+  }
+});
+
 test('reload restores selected workspace file, active board and subsequent file saves', async () => {
   const file = workspaceFile();
   file.queryPermission = async () => 'granted';
@@ -145,4 +175,30 @@ test('expired file permission restores cached workspace and requires reconnect b
   assert.equal(restored.data.boards[0].id, 'one');
   assert.equal(restored.reconnectRequired, true);
   await assert.rejects(reloaded.invoke('save_workspace', {data: restored.data}), /Reopen the workspace/);
+});
+
+test('reconnect requests permission and saves current edits without reopening old data', async () => {
+  const file = workspaceFile();
+  file.queryPermission = async () => 'prompt';
+  let permission = 'denied';
+  file.requestPermission = async () => permission;
+  const browser = {indexedDB: sessionDatabase(), showSaveFilePicker: async () => file, showOpenFilePicker: async () => [file]};
+  await platform(new Map(), browser).invoke('connect_workspace_file', {create: true, data: workspace()});
+  const reloaded = platform(new Map(), browser);
+  const {data} = await reloaded.invoke('load_workspace');
+  data.boards[0].title = 'Unsaved edit';
+  const original = file.content;
+  await assert.rejects(reloaded.invoke('reconnect_workspace_file', {data}), /permission denied/);
+  assert.equal(file.content, original);
+  permission = 'granted';
+  file.replace('external changes');
+  await assert.rejects(reloaded.invoke('reconnect_workspace_file', {data}), /File changed outside/);
+  assert.equal(file.content, 'external changes');
+  file.replace(original);
+  await reloaded.invoke('reconnect_workspace_file', {data});
+  assert.equal(JSON.parse(file.content).boards[0].title, 'Unsaved edit');
+  data.boards[0].title = 'Next edit';
+  await reloaded.invoke('save_workspace', {data});
+  assert.equal(JSON.parse(file.content).boards[0].title, 'Next edit');
+  assert.ok(!file.content.includes('secret'));
 });

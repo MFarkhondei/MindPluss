@@ -27,7 +27,7 @@
     });
   }
   async function rememberWorkspace(data) {
-    try { await workspaceSession({ handle: workspaceFile, data }); }
+    try { await workspaceSession({ handle: workspaceFile, data, content: lastFileContent }); }
     catch (error) { console.warn('Could not remember workspace file', error); }
   }
   const fileTypes = [{ description: 'MindPluss workspace', accept: { 'application/json': ['.json'] } }];
@@ -111,7 +111,7 @@
   }
   window.MindPlussPlatform = {
     fileStatus() {
-      return { name: workspaceFile ? workspaceFile.name : null, pending: pendingWrites > 0 || fileDirty };
+      return { name: workspaceFile ? workspaceFile.name : null, reconnectRequired, pending: pendingWrites > 0 || fileDirty };
     },
     markFileDirty() { if (workspaceFile) fileDirty = true; },
     aiUrl(url) {
@@ -136,6 +136,7 @@
             workspaceFile = session.handle;
             reconnectRequired = true;
             let data = session.data;
+            lastFileContent = session.content ?? JSON.stringify(data, null, 2);
             try {
               const permission = await workspaceFile.queryPermission({ mode: 'readwrite' });
               if (permission === 'granted') {
@@ -160,6 +161,16 @@
           try { localStorage.setItem(WORKSPACE, JSON.stringify(data)); }
           catch { throw new Error('فضای ذخیرهٔ مرورگر پر است. خروجی JSON بگیرید و پیوست‌های بزرگ را حذف کنید. / Browser storage is full. Export JSON to back up your work.'); }
           return true;
+        }
+        case 'reconnect_workspace_file': {
+          if (!workspaceFile) throw new Error('No workspace file selected');
+          // Request directly from the click, before any other asynchronous work.
+          const permission = await workspaceFile.requestPermission({ mode: 'readwrite' });
+          if (permission !== 'granted') throw new Error('مجوز نوشتن فایل داده نشد / File write permission denied');
+          await writeQueue;
+          await queueFileWrite(cleanWorkspace(args.data));
+          reconnectRequired = false;
+          return { name: workspaceFile.name };
         }
         case 'connect_workspace_file': {
           if (!window.showOpenFilePicker || !window.showSaveFilePicker) {
